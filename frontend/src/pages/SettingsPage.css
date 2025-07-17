@@ -1,0 +1,145 @@
+.settings-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.settings-container h2 {
+  color: #333;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.settings-container h3 {
+  color: #555;
+  margin: 30px 0 15px 0;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+/* Seção Localiza */
+.localiza-section {
+  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e9 100%);
+  border: 2px solid #00a651;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.localiza-section h3 {
+  color: #00a651;
+  border: none;
+  margin: 0 0 12px 0;
+  padding: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.localiza-section p {
+  color: #666;
+  margin: 0 0 20px 0;
+  font-size: 1rem;
+}
+
+.localiza-config-link {
+  text-decoration: none;
+}
+
+.localiza-config-button {
+  background: linear-gradient(135deg, #00a651 0%, #008f45 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 28px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.2);
+}
+
+.localiza-config-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 166, 81, 0.3);
+}
+
+.add-service-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.add-service-form input,
+.add-service-form select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  flex: 1;
+  min-width: 150px;
+}
+
+.add-service-form button {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.add-service-form button:hover {
+  background: #0056b3;
+}
+
+.services-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+.services-table th,
+.services-table td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+}
+
+.services-table th {
+  background: #f8f9fa;
+  font-weight: bold;
+}
+
+.services-table button {
+  margin-right: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.services-table button:first-child {
+  background: #28a745;
+  color: white;
+}
+
+.services-table button:last-child {
+  background: #dc3545;
+  color: white;
+}
+
+.services-table button:hover {
+  opacity: 0.8;
+}
+
+.services-table input,
+.services-table select {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+} 

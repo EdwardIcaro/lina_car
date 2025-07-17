@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id     String    @id @default(cuid())
+  name   String
+  phone  String    @unique
+  createdAt DateTime @default(now())
+  vehicles Vehicle[]
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  plate     String   @unique // A placa é o identificador único do veículo
+  make      String   // Marca (ex: Toyota)
+  model     String   // Modelo (ex: Corolla)
+  color     String
+  createdAt DateTime @default(now())
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String
+
+  workOrders WorkOrder[]
+}
+
+model Service {
+  id    String  @id @default(cuid())
+  name  String
+  price Float
+  type  String  // 'carro' ou 'moto'
+  workOrders ServicesOnWorkOrders[]
+
+  @@unique([name, type])
+}
+
+model Employee {
+  id         String   @id @default(cuid())
+  name       String
+  percentage Float    // Porcentagem de ganho do funcionário
+  createdAt  DateTime @default(now())
+  workOrders WorkOrder[]
+  cashMovements CashMovement[] // Relação com movimentações de caixa
+}
+
+model WorkOrder {
+  id         String   @id @default(cuid())
+  status     String   @default("AWAITING")
+  totalPrice Float
+  createdAt  DateTime @default(now())
+  finishedAt DateTime?
+  customService String? // Campo para serviços customizados
+  isLocaliza Boolean @default(false) // Indica se é um serviço da Localiza
+  employeePercentage Float? // Porcentagem de ganho do funcionário usada nesta ordem
+
+  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
+  vehicleId  String?
+
+  services   ServicesOnWorkOrders[]
+  payments   Payment[]
+
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  method      String   // 'pix', 'cash', 'debit', 'credit'
+  amount      Float
+  received    Float?   // Para pagamentos em dinheiro
+  change      Float?   // Troco para pagamentos em dinheiro
+  createdAt   DateTime @default(now())
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrderId String
+}
+
+// Tabela de ligação para a relação Muitos-para-Muitos entre WorkOrder e Service
+model ServicesOnWorkOrders {
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrderId String
+  service     Service   @relation(fields: [serviceId], references: [id])
+  serviceId   String
+
+  @@id([workOrderId, serviceId])
+}
+
+// Configurações da Localiza
+model LocalizaConfig {
+  id          String   @id @default(cuid())
+  isActive    Boolean  @default(false) // Se o serviço Localiza está ativo
+  percentage  Float    // Porcentagem que a Localiza paga (ex: 30.0 para 30%)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  services    LocalizaService[]
+}
+
+// Serviços específicos da Localiza
+model LocalizaService {
+  id              String         @id @default(cuid())
+  name            String         // Nome do serviço
+  price           Float          // Preço do serviço
+  isActive        Boolean        @default(true) // Se o serviço está ativo
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  localizaConfig  LocalizaConfig @relation(fields: [localizaConfigId], references: [id])
+  localizaConfigId String
+} 
+
+// Movimentações do Caixa
+model CashMovement {
+  id          String   @id @default(cuid())
+  type        String   // 'entrada' ou 'saida'
+  amount      Float
+  reason      String?  // Motivo da saída
+  withdrawType String? // 'sangria', 'vale', 'outro'
+  employeeName String? // Nome do funcionário (para histórico)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee    Employee? @relation(fields: [employeeId], references: [id])
+  employeeId  String?
+} 
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  category  String?
+  unit      String
+  minStock  Float
+  notes     String?
+  stock     Float
+  movements ProductMovement[]
+}
+
+model ProductMovement {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  type      String   // 'entrada' ou 'saida'
+  amount    Float
+  reason    String?
+  createdAt DateTime @default(now())
+}
