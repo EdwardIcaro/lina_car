@@ -15,10 +15,10 @@ export const listProducts = async (req, res) => {
 
 // Criar novo produto
 export const createProduct = async (req, res) => {
-    const { name, category, unit, minStock, notes, stock } = req.body;
+    const { name } = req.body;
     try {
         const product = await prisma.product.create({
-            data: { name, category, unit, minStock: parseFloat(minStock), notes, stock: parseFloat(stock) }
+            data: { name }
         });
         res.status(201).json(product);
     } catch (error) {
@@ -29,11 +29,11 @@ export const createProduct = async (req, res) => {
 // Atualizar produto
 export const updateProduct = async (req, res) => {
     const { id } = req.params;
-    const { name, category, unit, minStock, notes, stock } = req.body;
+    const { name } = req.body;
     try {
         const product = await prisma.product.update({
             where: { id },
-            data: { name, category, unit, minStock: parseFloat(minStock), notes, stock: parseFloat(stock) }
+            data: { name }
         });
         res.status(200).json(product);
     } catch (error) {
@@ -54,16 +54,13 @@ export const deleteProduct = async (req, res) => {
 
 // Registrar movimentação (entrada ou saída)
 export const registerMovement = async (req, res) => {
-    const { productId, type, amount, reason } = req.body;
+    const { productId, type } = req.body;
     try {
         const product = await prisma.product.findUnique({ where: { id: productId } });
         if (!product) return res.status(404).json({ message: 'Produto não encontrado.' });
-        const newStock = type === 'entrada' ? product.stock + parseFloat(amount) : product.stock - parseFloat(amount);
-        if (newStock < 0) return res.status(400).json({ message: 'Estoque insuficiente.' });
         const movement = await prisma.productMovement.create({
-            data: { productId, type, amount: parseFloat(amount), reason }
+            data: { productId, type }
         });
-        await prisma.product.update({ where: { id: productId }, data: { stock: newStock } });
         res.status(201).json(movement);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao registrar movimentação.' });

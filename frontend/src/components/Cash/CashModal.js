@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaPlus, FaMinus, FaHistory } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaMinus, FaHistory, FaCog } from 'react-icons/fa';
 import axios from 'axios';
 
-const CashModal = ({ onClose }) => {
-    const [activeTab, setActiveTab] = useState('open'); // 'open', 'withdraw', 'history'
+const CashModal = ({ onClose, initialTab }) => {
+    const [activeTab, setActiveTab] = useState(initialTab || 'open'); // 'open', 'withdraw', 'history'
     const [cashData, setCashData] = useState({
         openingAmount: '',
         withdrawAmount: '',
@@ -13,12 +13,86 @@ const CashModal = ({ onClose }) => {
     const [cashHistory, setCashHistory] = useState([]);
     const [currentBalance, setCurrentBalance] = useState(0);
     const [employees, setEmployees] = useState([]);
+    const [isCashOpen, setIsCashOpen] = useState(false);
+    const [todayAbertura, setTodayAbertura] = useState(null);
+    const [closeData, setCloseData] = useState({
+        dinheiro: '',
+        cartao: '',
+        pix: '',
+        localiza: '',
+        saidas: ''
+    });
+    const [closeStep, setCloseStep] = useState(false);
+    const [closeSuccess, setCloseSuccess] = useState(false);
+    const [closeErrors, setCloseErrors] = useState({});
+    const [closeLoading, setCloseLoading] = useState(false);
+    const [closeDiffs, setCloseDiffs] = useState(null);
+    const [closeObservation, setCloseObservation] = useState('');
+    const [closeObservationError, setCloseObservationError] = useState('');
+    // Remover qualquer referência a showOptions, menu de opções, e a aba/fluxo de saída (withdraw) do modal de caixa.
+    // Remover o bloco de activeTab === 'withdraw' e a lógica relacionada.
 
     useEffect(() => {
         fetchCashHistory();
         fetchCurrentBalance();
         fetchEmployees();
+        checkCashOpen();
     }, []);
+
+    useEffect(() => {
+        if (closeStep) {
+            localStorage.setItem('cashCloseProgress', JSON.stringify({ closeData, closeDiffs, closeObservation }));
+        } else {
+            localStorage.removeItem('cashCloseProgress');
+        }
+    }, [closeStep, closeData, closeDiffs, closeObservation]);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('cashCloseProgress');
+        if (saved) {
+            const { closeData: cd, closeDiffs: diffs, closeObservation: obs } = JSON.parse(saved);
+            setCloseData(cd || closeData);
+            setCloseDiffs(diffs || null);
+            setCloseObservation(obs || '');
+            setCloseStep(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (initialTab) setActiveTab(initialTab);
+    }, [initialTab]);
+
+    useEffect(() => {
+        if (closeStep) {
+            const beforeUnload = (e) => {
+                e.preventDefault();
+                e.returnValue = '';
+            };
+            window.addEventListener('beforeunload', beforeUnload);
+            return () => window.removeEventListener('beforeunload', beforeUnload);
+        }
+    }, [closeStep]);
+
+    const checkCashOpen = async () => {
+        // Busca as movimentações do dia e verifica se já existe uma abertura
+        try {
+            const { data } = await axios.get('/api/cash/history');
+            const start = new Date();
+            start.setHours(0,0,0,0);
+            const end = new Date();
+            end.setHours(23,59,59,999);
+            const todayMovements = data.filter(mov => {
+                const d = new Date(mov.createdAt);
+                return d >= start && d <= end;
+            });
+            // Considere o caixa aberto apenas se houver uma entrada sem closedAt
+            const abertura = todayMovements.find(m => m.type === 'entrada' && !m.closedAt);
+            setTodayAbertura(abertura || null);
+            setIsCashOpen(!!abertura);
+        } catch (error) {
+            setIsCashOpen(false);
+        }
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -52,15 +126,15 @@ const CashModal = ({ onClose }) => {
             alert('Por favor, informe um valor válido para abertura do caixa.');
             return;
         }
-
         try {
             await axios.post('/api/cash/open', {
                 amount: parseFloat(cashData.openingAmount)
             });
-            alert('Caixa aberto com sucesso!');
             setCashData({ ...cashData, openingAmount: '' });
             fetchCashHistory();
             fetchCurrentBalance();
+            checkCashOpen();
+            onClose(); // Fechar o modal imediatamente após abrir o caixa
         } catch (error) {
             alert('Erro ao abrir caixa: ' + error.response?.data?.message || 'Erro interno');
         }
@@ -98,6 +172,104 @@ const CashModal = ({ onClose }) => {
         }
     };
 
+    const validateCloseData = async () => {
+        setCloseLoading(true);
+        setCloseErrors({});
+        setCloseDiffs(null);
+        try {
+            // Buscar pagamentos do dia
+            const paymentsRes = await axios.get('/api/payments?hoje=1');
+            const payments = paymentsRes.data;
+            // Somar por método
+            let dinheiro = 0, cartao = 0, pix = 0, localiza = 0;
+            payments.forEach(p => {
+                if (p.method === 'cash') dinheiro += p.amount;
+                else if (p.method === 'credit' || p.method === 'debit') cartao += p.amount;
+                else if (p.method === 'pix') pix += p.amount;
+                if (p.workOrder?.isLocaliza) localiza += p.amount;
+            });
+            // Buscar saídas do dia
+            const cashRes = await axios.get('/api/cash/history');
+            const start = new Date();
+            start.setHours(0,0,0,0);
+            const end = new Date();
+            end.setHours(23,59,59,999);
+            const saidas = cashRes.data.filter(mov => {
+                const d = new Date(mov.createdAt);
+                return d >= start && d <= end && mov.type === 'saida';
+            }).reduce((sum, mov) => sum + mov.amount, 0);
+            // Calcular diferenças
+            const diffs = {
+                dinheiro: {
+                    digitado: parseFloat(closeData.dinheiro || 0),
+                    computado: dinheiro,
+                    diff: parseFloat(closeData.dinheiro || 0) - dinheiro
+                },
+                cartao: {
+                    digitado: parseFloat(closeData.cartao || 0),
+                    computado: cartao,
+                    diff: parseFloat(closeData.cartao || 0) - cartao
+                },
+                pix: {
+                    digitado: parseFloat(closeData.pix || 0),
+                    computado: pix,
+                    diff: parseFloat(closeData.pix || 0) - pix
+                },
+                localiza: {
+                    digitado: parseFloat(closeData.localiza || 0),
+                    computado: localiza,
+                    diff: parseFloat(closeData.localiza || 0) - localiza
+                },
+                saidas: {
+                    digitado: parseFloat(closeData.saidas || 0),
+                    computado: saidas,
+                    diff: parseFloat(closeData.saidas || 0) - saidas
+                }
+            };
+            setCloseDiffs(diffs);
+            setCloseLoading(false);
+            return true; // Sempre permite fechar
+        } catch (err) {
+            setCloseLoading(false);
+            alert('Erro ao validar fechamento: ' + (err.response?.data?.message || 'Erro interno'));
+            return false;
+        }
+    };
+
+    const handleCloseCash = async () => {
+        const valid = await validateCloseData();
+        if (!valid) return;
+        setCloseStep(true); // Mostra a tabela de diferenças antes de fechar
+    };
+
+    const confirmCloseCash = async () => {
+        // Se houver diferença, observação é obrigatória
+        const hasDiff = closeDiffs && Object.values(closeDiffs).some(val => Math.abs(val.diff) > 0.01);
+        if (hasDiff && !closeObservation.trim()) {
+            setCloseObservationError('Observação obrigatória para fechar com diferença.');
+            return;
+        }
+        setCloseObservationError('');
+        try {
+            await axios.post('/api/cash/close', {
+                observation: hasDiff ? closeObservation : ''
+            });
+            setCloseSuccess(true);
+            setIsCashOpen(false);
+            setActiveTab('open');
+            setCloseData({ dinheiro: '', cartao: '', pix: '', localiza: '', saidas: '' });
+            setCloseDiffs(null);
+            setCloseStep(false);
+            setCloseObservation('');
+            fetchCashHistory();
+            fetchCurrentBalance();
+            checkCashOpen();
+            onClose(); // Fechar o modal após fechar o caixa
+        } catch (error) {
+            alert('Erro ao fechar caixa: ' + (error.response?.data?.message || 'Erro interno'));
+        }
+    };
+
     const getWithdrawTypeLabel = (type) => {
         switch (type) {
             case 'sangria': return 'Sangria';
@@ -105,6 +277,14 @@ const CashModal = ({ onClose }) => {
             case 'outro': return 'Outro';
             default: return type;
         }
+    };
+
+    const handleClose = () => {
+        if (closeStep) {
+            alert('Finalize o fechamento do caixa para sair.');
+            return;
+        }
+        onClose();
     };
 
     return (
@@ -132,7 +312,7 @@ const CashModal = ({ onClose }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                     <h2 style={{ margin: 0, color: '#333' }}>Controle de Caixa</h2>
                     <button 
-                        onClick={onClose}
+                        onClick={handleClose}
                         style={{
                             background: 'none',
                             border: 'none',
@@ -144,76 +324,13 @@ const CashModal = ({ onClose }) => {
                         <FaTimes />
                     </button>
                 </div>
-
-                {/* Saldo atual */}
-                <div style={{
-                    background: '#e8f5e9',
-                    padding: 16,
-                    borderRadius: 8,
-                    marginBottom: 24,
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#388e3c' }}>
-                        Saldo Atual: R$ {currentBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </div>
-                </div>
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', marginBottom: 24, borderBottom: '1px solid #eee' }}>
-                    <button
-                        onClick={() => setActiveTab('open')}
-                        style={{
-                            padding: '12px 24px',
-                            background: activeTab === 'open' ? '#1976d2' : 'transparent',
-                            color: activeTab === 'open' ? '#fff' : '#666',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            borderBottom: activeTab === 'open' ? '3px solid #1976d2' : 'none'
-                        }}
-                    >
-                        <FaPlus style={{ marginRight: 8 }} />
-                        Abertura
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('withdraw')}
-                        style={{
-                            padding: '12px 24px',
-                            background: activeTab === 'withdraw' ? '#1976d2' : 'transparent',
-                            color: activeTab === 'withdraw' ? '#fff' : '#666',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            borderBottom: activeTab === 'withdraw' ? '3px solid #1976d2' : 'none'
-                        }}
-                    >
-                        <FaMinus style={{ marginRight: 8 }} />
-                        Saída
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        style={{
-                            padding: '12px 24px',
-                            background: activeTab === 'history' ? '#1976d2' : 'transparent',
-                            color: activeTab === 'history' ? '#fff' : '#666',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            borderBottom: activeTab === 'history' ? '3px solid #1976d2' : 'none'
-                        }}
-                    >
-                        <FaHistory style={{ marginRight: 8 }} />
-                        Histórico
-                    </button>
-                </div>
-
-                {/* Conteúdo das tabs */}
-                {activeTab === 'open' && (
+                {/* Fluxo de abertura */}
+                {!isCashOpen && (
                     <div>
                         <h3 style={{ marginBottom: 16 }}>Abertura de Caixa</h3>
                         <div style={{ marginBottom: 16 }}>
                             <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
-                                Valor de Abertura:
+                                Fundo de caixa:
                             </label>
                             <input
                                 type="number"
@@ -248,101 +365,148 @@ const CashModal = ({ onClose }) => {
                         </button>
                     </div>
                 )}
-
-                {activeTab === 'withdraw' && (
+                {/* Fluxo de fechamento */}
+                {isCashOpen && (
                     <div>
-                        <h3 style={{ marginBottom: 16 }}>Registrar Saída</h3>
+                        <h3 style={{ marginBottom: 16 }}>Fechamento de Caixa</h3>
+                        {!closeStep && (
+                        <>
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
-                                Tipo de Saída:
-                            </label>
-                            <select
-                                value={cashData.withdrawType}
-                                onChange={(e) => setCashData({ ...cashData, withdrawType: e.target.value, employeeId: '' })}
-                                style={{
-                                    width: '100%',
-                                    padding: 12,
-                                    border: '1px solid #ddd',
-                                    borderRadius: 6,
-                                    fontSize: 16
-                                }}
-                            >
-                                <option value="sangria">Sangria</option>
-                                <option value="vale">Vale Funcionário</option>
-                                <option value="outro">Outro</option>
-                            </select>
-                        </div>
-
-                        {cashData.withdrawType === 'vale' && (
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
-                                    Funcionário:
-                                </label>
-                                <select
-                                    value={cashData.employeeId}
-                                    onChange={(e) => setCashData({ ...cashData, employeeId: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: 12,
-                                        border: '1px solid #ddd',
-                                        borderRadius: 6,
-                                        fontSize: 16
-                                    }}
-                                >
-                                    <option value="">Selecione um funcionário</option>
-                                    {employees.map(employee => (
-                                        <option key={employee.id} value={employee.id}>
-                                            {employee.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        <div style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
-                                Valor:
-                            </label>
+                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Dinheiro:</label>
                             <input
                                 type="number"
-                                value={cashData.withdrawAmount}
-                                onChange={(e) => setCashData({ ...cashData, withdrawAmount: e.target.value })}
+                                value={closeData.dinheiro}
+                                onChange={e => setCloseData({ ...closeData, dinheiro: e.target.value })}
                                 placeholder="0,00"
                                 step="0.01"
-                                style={{
-                                    width: '100%',
-                                    padding: 12,
-                                    border: '1px solid #ddd',
-                                    borderRadius: 6,
-                                    fontSize: 16
-                                }}
+                                style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 6, fontSize: 16 }}
                             />
                         </div>
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
-                                Motivo:
-                            </label>
-                            <textarea
-                                value={cashData.withdrawReason}
-                                onChange={(e) => setCashData({ ...cashData, withdrawReason: e.target.value })}
-                                placeholder="Descreva o motivo da saída..."
-                                rows="3"
-                                style={{
-                                    width: '100%',
-                                    padding: 12,
-                                    border: '1px solid #ddd',
-                                    borderRadius: 6,
-                                    fontSize: 16,
-                                    resize: 'vertical'
-                                }}
+                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Cartão:</label>
+                            <input
+                                type="number"
+                                value={closeData.cartao}
+                                onChange={e => setCloseData({ ...closeData, cartao: e.target.value })}
+                                placeholder="0,00"
+                                step="0.01"
+                                style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 6, fontSize: 16 }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Pix:</label>
+                            <input
+                                type="number"
+                                value={closeData.pix}
+                                onChange={e => setCloseData({ ...closeData, pix: e.target.value })}
+                                placeholder="0,00"
+                                step="0.01"
+                                style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 6, fontSize: 16 }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Localiza:</label>
+                            <input
+                                type="number"
+                                value={closeData.localiza}
+                                onChange={e => setCloseData({ ...closeData, localiza: e.target.value })}
+                                placeholder="0,00"
+                                step="0.01"
+                                style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 6, fontSize: 16 }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Saídas:</label>
+                            <input
+                                type="number"
+                                value={closeData.saidas}
+                                onChange={e => setCloseData({ ...closeData, saidas: e.target.value })}
+                                placeholder="0,00"
+                                step="0.01"
+                                style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 6, fontSize: 16 }}
                             />
                         </div>
                         <button
-                            onClick={handleWithdraw}
                             style={{
                                 width: '100%',
                                 padding: 12,
-                                background: '#f57c00',
+                                background: '#388e3c',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 6,
+                                cursor: closeLoading ? 'not-allowed' : 'pointer',
+                                fontWeight: 600,
+                                fontSize: 16,
+                                opacity: closeLoading ? 0.7 : 1
+                            }}
+                            onClick={handleCloseCash}
+                            disabled={closeLoading}
+                        >
+                            {closeLoading ? 'Validando...' : 'Finalizar Fechamento'}
+                        </button>
+                        <button
+                            style={{
+                                width: '100%',
+                                padding: 12,
+                                background: '#ccc',
+                                color: '#333',
+                                border: 'none',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                fontSize: 16,
+                                marginTop: 8
+                            }}
+                            onClick={() => setActiveTab('open')}
+                        >
+                            Cancelar
+                        </button>
+                        </>
+                        )}
+                        {/* Resumo/conferência dos valores antes da confirmação final */}
+                        {closeStep && (
+                        <>
+                        <h4 style={{ margin: '24px 0 8px 0' }}>Resumo do Fechamento</h4>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+                            <thead>
+                                <tr style={{ background: '#f5f5f5' }}>
+                                    <th style={{ padding: 8, border: '1px solid #eee' }}>Tipo</th>
+                                    <th style={{ padding: 8, border: '1px solid #eee' }}>Valor Digitado</th>
+                                    <th style={{ padding: 8, border: '1px solid #eee' }}>Valor Computado</th>
+                                    <th style={{ padding: 8, border: '1px solid #eee' }}>Diferença</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {closeDiffs && Object.entries(closeDiffs).map(([tipo, val]) => (
+                                    <tr key={tipo}>
+                                        <td style={{ padding: 8, border: '1px solid #eee', fontWeight: 600 }}>{tipo.charAt(0).toUpperCase() + tipo.slice(1)}</td>
+                                        <td style={{ padding: 8, border: '1px solid #eee' }}>R$ {val.digitado.toFixed(2)}</td>
+                                        <td style={{ padding: 8, border: '1px solid #eee' }}>R$ {val.computado.toFixed(2)}</td>
+                                        <td style={{ padding: 8, border: '1px solid #eee', color: Math.abs(val.diff) > 0.01 ? '#e53935' : '#388e3c', fontWeight: 600 }}>
+                                            {val.diff.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {/* Campo de observação obrigatório se houver diferença */}
+                        {closeDiffs && Object.values(closeDiffs).some(val => Math.abs(val.diff) > 0.01) && (
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Observação (obrigatória para fechar com diferença):</label>
+                                <textarea
+                                    value={closeObservation}
+                                    onChange={e => setCloseObservation(e.target.value)}
+                                    rows={3}
+                                    style={{ width: '100%', padding: 12, border: closeObservationError ? '2px solid #e53935' : '1px solid #ddd', borderRadius: 6, fontSize: 16 }}
+                                />
+                                {closeObservationError && <div style={{ color: '#e53935', fontWeight: 600 }}>{closeObservationError}</div>}
+                            </div>
+                        )}
+                        <button
+                            style={{
+                                width: '100%',
+                                padding: 12,
+                                background: '#388e3c',
                                 color: '#fff',
                                 border: 'none',
                                 borderRadius: 6,
@@ -350,55 +514,16 @@ const CashModal = ({ onClose }) => {
                                 fontWeight: 600,
                                 fontSize: 16
                             }}
+                            onClick={confirmCloseCash}
                         >
-                            Registrar Saída
+                            Confirmar Fechamento
                         </button>
-                    </div>
-                )}
-
-                {activeTab === 'history' && (
-                    <div>
-                        <h3 style={{ marginBottom: 16 }}>Histórico de Movimentações</h3>
-                        {cashHistory.length === 0 ? (
-                            <div style={{ textAlign: 'center', color: '#666', padding: 40 }}>
-                                Nenhuma movimentação encontrada.
+                        {closeSuccess && (
+                            <div style={{ marginTop: 24, background: '#e8f5e9', color: '#388e3c', padding: 16, borderRadius: 8, textAlign: 'center', fontWeight: 600 }}>
+                                Caixa fechado com sucesso!
                             </div>
-                        ) : (
-                            <div style={{ maxHeight: 400, overflow: 'auto' }}>
-                                {cashHistory.map((movement) => (
-                                    <div
-                                        key={movement.id}
-                                        style={{
-                                            padding: 12,
-                                            border: '1px solid #eee',
-                                            borderRadius: 6,
-                                            marginBottom: 8,
-                                            background: movement.type === 'entrada' ? '#e8f5e9' : '#fff3e0'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600 }}>
-                                                    {movement.type === 'entrada' ? 'Abertura' : getWithdrawTypeLabel(movement.withdrawType)}
-                                                </div>
-                                                <div style={{ fontSize: 14, color: '#666' }}>
-                                                    {movement.reason || 'Abertura de caixa'}
-                                                    {movement.employeeName && ` - ${movement.employeeName}`}
-                                                </div>
-                                                <div style={{ fontSize: 12, color: '#999' }}>
-                                                    {new Date(movement.createdAt).toLocaleString('pt-BR')}
-                                                </div>
-                                            </div>
-                                            <div style={{
-                                                fontWeight: 700,
-                                                color: movement.type === 'entrada' ? '#388e3c' : '#f57c00'
-                                            }}>
-                                                {movement.type === 'entrada' ? '+' : '-'} R$ {movement.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        )}
+                        </>
                         )}
                     </div>
                 )}

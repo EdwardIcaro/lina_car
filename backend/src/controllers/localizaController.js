@@ -10,8 +10,8 @@ export const getLocalizaConfig = async (req, res) => {
     if (!config) {
       config = await prisma.localizaConfig.create({
         data: {
-          isActive: false,
-          percentage: 30.0, // 30% de ganho padrão para o funcionário
+          name: 'Padrão',
+          value: 'default'
         }
       });
     }
@@ -26,34 +26,22 @@ export const getLocalizaConfig = async (req, res) => {
 // Atualizar configuração da Localiza
 export const updateLocalizaConfig = async (req, res) => {
   try {
-    const { isActive, percentage } = req.body;
-    
     let config = await prisma.localizaConfig.findFirst();
-    
+    const { percentage } = req.body;
     if (config) {
-      // Garantir que percentage não seja null
-      const updateData = {
-        isActive: isActive !== undefined ? isActive : config.isActive,
-      };
-      
-      // Só atualiza percentage se foi fornecido um valor válido
-      if (percentage !== undefined && percentage !== null) {
-        updateData.percentage = parseFloat(percentage);
-      }
-      
       config = await prisma.localizaConfig.update({
         where: { id: config.id },
-        data: updateData
+        data: { 
+          name: 'Padrão', 
+          value: 'default',
+          percentage: percentage !== undefined ? percentage : config.percentage
+        }
       });
     } else {
       config = await prisma.localizaConfig.create({
-        data: {
-          isActive: isActive !== undefined ? isActive : false,
-          percentage: percentage !== undefined && percentage !== null ? parseFloat(percentage) : 30.0, // 30% de ganho padrão
-        }
+        data: { name: 'Padrão', value: 'default', percentage: percentage !== undefined ? percentage : 30 }
       });
     }
-    
     res.status(200).json(config);
   } catch (error) {
     console.error('Erro ao atualizar configuração da Localiza:', error);
@@ -86,16 +74,13 @@ export const getLocalizaServices = async (req, res) => {
 // Criar serviço da Localiza
 export const createLocalizaService = async (req, res) => {
   try {
-    const { name, price, isActive = true } = req.body;
+    const { name, price } = req.body;
     
     let config = await prisma.localizaConfig.findFirst();
     
     if (!config) {
       config = await prisma.localizaConfig.create({
-        data: {
-          isActive: false,
-          percentage: 30.0, // 30% de ganho padrão
-        }
+        data: {}
       });
     }
     
@@ -103,7 +88,6 @@ export const createLocalizaService = async (req, res) => {
       data: {
         name,
         price: parseFloat(price),
-        isActive,
         localizaConfigId: config.id,
       }
     });
@@ -119,17 +103,14 @@ export const createLocalizaService = async (req, res) => {
 export const updateLocalizaService = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, price, isActive } = req.body;
-    
+    const { name, price } = req.body;
     const service = await prisma.localizaService.update({
       where: { id },
       data: {
         name: name !== undefined ? name : undefined,
-        price: price !== undefined ? parseFloat(price) : undefined,
-        isActive: isActive !== undefined ? isActive : undefined,
+        price: price !== undefined ? parseFloat(price) : undefined
       }
     });
-    
     res.status(200).json(service);
   } catch (error) {
     console.error('Erro ao atualizar serviço da Localiza:', error);

@@ -112,7 +112,7 @@ const PaymentModal = ({ order, onClose, onComplete }) => {
             Cliente: {order.vehicle?.customer?.name}
           </div>
           <div style={{ marginBottom: 4 }}>
-            Serviços: {order.customService || order.services.map(s => s.service.name).join(', ')}
+            Serviços: {order.customService || (Array.isArray(order.services) ? order.services.map(s => s.service.name).join(', ') : '')}
           </div>
           <div style={{ fontWeight: 600, fontSize: 18, color: '#1976d2' }}>
             Total: R$ {order.totalPrice.toFixed(2)}

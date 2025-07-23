@@ -11,9 +11,9 @@ export const getServices = async (req, res) => {
 };
 
 export const createService = async (req, res) => {
-  const { name, price } = req.body;
+  const { name, price, type } = req.body;
   try {
-    const service = await prisma.service.create({ data: { name, price } });
+    const service = await prisma.service.create({ data: { name, price, type } });
     res.status(201).json(service);
   } catch (err) {
     res.status(500).json({ message: 'Erro ao criar serviço.' });
@@ -22,9 +22,9 @@ export const createService = async (req, res) => {
 
 export const updateService = async (req, res) => {
   const { id } = req.params;
-  const { name, price } = req.body;
+  const { name, price, type } = req.body;
   try {
-    const service = await prisma.service.update({ where: { id }, data: { name, price } });
+    const service = await prisma.service.update({ where: { id }, data: { name, price, type } });
     res.json(service);
   } catch (err) {
     res.status(500).json({ message: 'Erro ao atualizar serviço.' });

@@ -22,11 +22,6 @@ export const getAllPayments = async (req, res) => {
                 customer: true
               }
             },
-            services: {
-              include: {
-                service: true
-              }
-            },
             employee: true
           }
         }

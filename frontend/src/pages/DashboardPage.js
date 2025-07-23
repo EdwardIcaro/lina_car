@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import KanbanBoard from '../components/Kanban/KanbanBoard';
 import CashModal from '../components/Cash/CashModal';
+import CashWithdrawModal from '../components/Cash/CashWithdrawModal';
 import axios from 'axios';
-import { FaCashRegister, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaCashRegister, FaEye, FaEyeSlash, FaPlusCircle, FaCog } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 
 const DashboardPage = () => {
+    const navigate = useNavigate();
     const [kpis, setKpis] = useState({
         andamento: 0,
         faturamento: 0,
@@ -14,6 +17,38 @@ const DashboardPage = () => {
     const [showCashModal, setShowCashModal] = useState(false);
     const [cashBalance, setCashBalance] = useState(null);
     const [showBalance, setShowBalance] = useState(false);
+    const [cashModalTab, setCashModalTab] = useState(null); // 'open', 'close', etc.
+    const [showOptions, setShowOptions] = useState(false);
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+
+    const handleOpenCashModal = (tab = null) => {
+        setCashModalTab(tab);
+        setShowCashModal(true);
+    };
+
+    // Buscar status do caixa aberto
+    const [isCashOpen, setIsCashOpen] = useState(false);
+    useEffect(() => {
+        const checkCashOpen = async () => {
+            try {
+                const { data } = await axios.get('/api/cash/history');
+                const start = new Date();
+                start.setHours(0,0,0,0);
+                const end = new Date();
+                end.setHours(23,59,59,999);
+                const todayMovements = data.filter(mov => {
+                    const d = new Date(mov.createdAt);
+                    return d >= start && d <= end;
+                });
+                // Considere o caixa aberto apenas se houver uma entrada sem closedAt
+                const abertura = todayMovements.find(m => m.type === 'entrada' && !m.closedAt);
+                setIsCashOpen(!!abertura);
+            } catch (error) {
+                setIsCashOpen(false);
+            }
+        };
+        checkCashOpen();
+    }, [showCashModal]);
 
     useEffect(() => {
         const fetchKpis = async () => {
@@ -52,45 +87,76 @@ const DashboardPage = () => {
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                 <h1 style={{ color: '#1976d2', margin: 0 }}>Dashboard</h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                    <div style={{
-                        background: '#e8f5e9',
-                        borderRadius: 8,
-                        padding: '12px 28px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        fontWeight: 700,
-                        color: '#388e3c',
-                        fontSize: 22,
-                        minWidth: 220
-                    }}>
-                        Saldo Atual:&nbsp;
-                        {showBalance
-                            ? `R$ ${Number(cashBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                            : '****'}
-                        <button
-                            onClick={() => setShowBalance(v => !v)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                marginLeft: 12,
-                                cursor: 'pointer',
-                                color: '#388e3c',
-                                fontSize: 26
-                            }}
-                            title={showBalance ? 'Ocultar valores' : 'Mostrar valores'}
-                        >
-                            {showBalance ? <FaEyeSlash /> : <FaEye />}
-                        </button>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 24, position: 'relative' }}>
+                    {/* Botão de opções do caixa */}
                     <button
-                        onClick={() => setShowCashModal(true)}
+                        onClick={() => setShowOptions((v) => !v)}
+                        style={{
+                            background: '#e3f2fd',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: 8,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px #0001',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8
+                        }}
+                        title="Opções do Caixa"
+                    >
+                        <FaCog size={20} />
+                        Opções
+                    </button>
+                    {showOptions && (
+                        <div style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: 60,
+                            background: '#fff',
+                            borderRadius: 8,
+                            boxShadow: '0 2px 16px #0002',
+                            padding: 16,
+                            zIndex: 3000,
+                            minWidth: 180
+                        }}>
+                            <div style={{ fontWeight: 600, marginBottom: 8 }}>Ações do Caixa</div>
+                            <button
+                                style={{
+                                    width: '100%',
+                                    padding: 10,
+                                    background: '#fff',
+                                    border: '1px solid #eee',
+                                    borderRadius: 6,
+                                    marginBottom: 8,
+                                    cursor: 'pointer',
+                                    textAlign: 'left'
+                                }}
+                                onClick={() => {
+                                    setShowWithdrawModal(true);
+                                    setShowOptions(false);
+                                }}
+                            >Registrar Saída</button>
+                            {/* Outras opções futuras */}
+                        </div>
+                    )}
+                    {showWithdrawModal && (
+                        <CashWithdrawModal
+                            onClose={() => setShowWithdrawModal(false)}
+                            onSuccess={() => {
+                                setShowWithdrawModal(false);
+                                // Atualizar dados do dashboard se necessário
+                            }}
+                        />
+                    )}
+                    {/* Botão de caixa unificado */}
+                    <button
+                        onClick={() => handleOpenCashModal(isCashOpen ? 'close' : 'open')}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: 8,
                             padding: '12px 20px',
-                            background: '#1976d2',
+                            background: isCashOpen ? '#f57c00' : '#1976d2',
                             color: '#fff',
                             border: 'none',
                             borderRadius: 8,
@@ -99,8 +165,27 @@ const DashboardPage = () => {
                             fontSize: 16
                         }}
                     >
-                        <FaCashRegister size={20} />
-                        Caixa
+                        <FaCashRegister size={20} style={isCashOpen ? { transform: 'rotate(180deg)' } : {}} />
+                        {isCashOpen ? 'Fechar Caixa' : 'Abrir Caixa'}
+                    </button>
+                    <button
+                        onClick={() => navigate('/new-order')}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '12px 20px',
+                            background: '#43a047',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: 16
+                        }}
+                    >
+                        <FaPlusCircle size={20} />
+                        Nova Ordem
                     </button>
                 </div>
             </div>
@@ -128,7 +213,7 @@ const DashboardPage = () => {
             
             {/* Modal de Caixa */}
             {showCashModal && (
-                <CashModal onClose={() => setShowCashModal(false)} />
+                <CashModal onClose={() => setShowCashModal(false)} initialTab={cashModalTab} />
             )}
         </div>
     );

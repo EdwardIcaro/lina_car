@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaArrowLeft, FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { Link } from 'react-router-dom'; // Added Link import
 import './LocalizaConfigPage.css';
 
 const LocalizaConfigPage = () => {
-  const [config, setConfig] = useState({ isActive: false, percentage: 30 });
+  const [config, setConfig] = useState({ percentage: 30 });
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddService, setShowAddService] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  const [newService, setNewService] = useState({ name: '', price: '', isActive: true });
+  const [newService, setNewService] = useState({ name: '', price: '' });
 
   useEffect(() => {
     fetchConfig();
@@ -50,7 +51,7 @@ const LocalizaConfigPage = () => {
     try {
       setLoading(true);
       await axios.post('/api/orders/localiza/services', newService);
-      setNewService({ name: '', price: '', isActive: true });
+      setNewService({ name: '', price: '' });
       setShowAddService(false);
       fetchServices();
     } catch (error) {
@@ -90,29 +91,14 @@ const LocalizaConfigPage = () => {
   return (
     <div className="localiza-config-container">
       <div className="config-header">
-        <button className="back-button" onClick={() => window.history.back()}>
-          <FaArrowLeft /> Voltar
-        </button>
-        <h1>Configurações Localiza</h1>
+        <Link to="/settings" className="back-button"><FaArrowLeft /> Voltar</Link>
+        <h1>Configuração Localiza</h1>
       </div>
-
       <div className="config-sections">
         {/* Configuração Geral */}
         <div className="config-section">
           <h2>Configuração Geral</h2>
           <div className="config-card">
-            <div className="config-item">
-              <label>Status do Serviço</label>
-              <button
-                className={`toggle-button ${config.isActive ? 'active' : 'inactive'}`}
-                onClick={() => updateConfig({ isActive: !config.isActive })}
-                disabled={loading}
-              >
-                {config.isActive ? <FaToggleOn /> : <FaToggleOff />}
-                {config.isActive ? 'Ativo' : 'Inativo'}
-              </button>
-            </div>
-            
             <div className="config-item">
               <label>Porcentagem de Ganho do Funcionário (%)</label>
               <input
@@ -127,7 +113,6 @@ const LocalizaConfigPage = () => {
             </div>
           </div>
         </div>
-
         {/* Serviços */}
         <div className="config-section">
           <div className="section-header">
@@ -140,7 +125,6 @@ const LocalizaConfigPage = () => {
               <FaPlus /> Adicionar Serviço
             </button>
           </div>
-
           <div className="services-grid">
             {services.map(service => (
               <div key={service.id} className="service-card">
@@ -163,19 +147,15 @@ const LocalizaConfigPage = () => {
                     </button>
                   </div>
                 </div>
-                
                 <div className="service-details">
                   <p className="service-price">R$ {service.price.toFixed(2)}</p>
-                  <span className={`service-status ${service.isActive ? 'active' : 'inactive'}`}>
-                    {service.isActive ? 'Ativo' : 'Inativo'}
-                  </span>
+                  <span className="service-status active">Ativo</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
-
       {/* Modal Adicionar Serviço */}
       {showAddService && (
         <div className="modal-overlay">
@@ -201,16 +181,6 @@ const LocalizaConfigPage = () => {
                 placeholder="0,00"
               />
             </div>
-            <div className="form-group">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={newService.isActive}
-                  onChange={(e) => setNewService({ ...newService, isActive: e.target.checked })}
-                />
-                Serviço Ativo
-              </label>
-            </div>
             <div className="modal-actions">
               <button onClick={() => setShowAddService(false)}>Cancelar</button>
               <button onClick={addService} disabled={loading || !newService.name || !newService.price}>
@@ -220,7 +190,6 @@ const LocalizaConfigPage = () => {
           </div>
         </div>
       )}
-
       {/* Modal Editar Serviço */}
       {editingService && (
         <div className="modal-overlay">
@@ -244,23 +213,12 @@ const LocalizaConfigPage = () => {
                 onChange={(e) => setEditingService({ ...editingService, price: parseFloat(e.target.value) })}
               />
             </div>
-            <div className="form-group">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={editingService.isActive}
-                  onChange={(e) => setEditingService({ ...editingService, isActive: e.target.checked })}
-                />
-                Serviço Ativo
-              </label>
-            </div>
             <div className="modal-actions">
               <button onClick={() => setEditingService(null)}>Cancelar</button>
               <button 
                 onClick={() => updateService(editingService.id, {
                   name: editingService.name,
-                  price: editingService.price,
-                  isActive: editingService.isActive
+                  price: editingService.price
                 })} 
                 disabled={loading || !editingService.name || !editingService.price}
               >

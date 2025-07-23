@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 // Criar uma nova Ordem de Serviço
 export const createOrder = async (req, res) => {
-  const { customer, vehicle, serviceIds, employeeId, customService, customPrice, isLocaliza, localizaServiceIds } = req.body;
+  const { customer, vehicle, serviceIds, employeeId, customService, customPrice, localizaServiceIds } = req.body;
 
   try {
     // Se não há telefone, gera um telefone único
@@ -25,14 +25,7 @@ export const createOrder = async (req, res) => {
     if (employeeId) {
       const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
       if (employee) {
-        if (isLocaliza) {
-          // Para serviços da Localiza, usa a porcentagem da configuração da Localiza
-          const localizaConfig = await prisma.localizaConfig.findFirst();
-          employeePercentage = localizaConfig?.percentage || 30.0;
-        } else {
-          // Para serviços normais, usa a porcentagem do funcionário
           employeePercentage = employee.percentage;
-        }
       }
     }
 
@@ -70,7 +63,7 @@ export const createOrder = async (req, res) => {
     });
 
       // Calcula o preço total dos serviços
-      if (isLocaliza && localizaServiceIds && localizaServiceIds.length > 0) {
+      if (localizaServiceIds && localizaServiceIds.length > 0) {
         // Serviços da Localiza
         const localizaServices = await prisma.localizaService.findMany({ 
           where: { id: { in: localizaServiceIds } } 
@@ -91,20 +84,10 @@ export const createOrder = async (req, res) => {
         employee: employeeId ? { connect: { id: employeeId } } : undefined,
         employeePercentage: employeePercentage,
         customService: customService || null,
-        isLocaliza: isLocaliza || false,
-        services: customService ? {
-          create: [] // Sem serviços padrão para customizados
-        } : isLocaliza && localizaServiceIds ? {
-          create: [] // Serviços da Localiza não usam a tabela de relacionamento normal
-        } : {
-          create: serviceIds.map(id => ({
-            service: { connect: { id } },
-          })),
-        },
+        isLocaliza: !!(localizaServiceIds && localizaServiceIds.length > 0),
       },
       include: {
         vehicle: { include: { customer: true } },
-        services: { include: { service: true } },
         employee: true,
       },
     });
@@ -119,7 +102,6 @@ export const createOrder = async (req, res) => {
 // Obter Ordens de Serviço para o Dashboard (não finalizadas)
 export const getDashboardOrders = async (req, res) => {
     try {
-        // Primeiro, vamos verificar se há ordens com dados inconsistentes
         const allOrders = await prisma.workOrder.findMany({
             where: {
                 status: {
@@ -128,36 +110,27 @@ export const getDashboardOrders = async (req, res) => {
             },
             include: {
                 vehicle: { include: { customer: true } },
-                services: { include: { service: true } },
                 employee: true,
             },
             orderBy: {
                 createdAt: 'asc'
             }
         });
-        
         // Filtra ordens com dados válidos
         const validOrders = allOrders.filter(order => {
-            // Verifica se a ordem tem dados básicos válidos
             if (!order.id || !order.status) {
                 console.warn(`Ordem com dados inválidos encontrada: ${order.id}`);
                 return false;
             }
-            
-            // Para ordens customizadas, não precisa de vehicle
             if (order.customService) {
                 return true;
             }
-            
-            // Para ordens normais, verifica se tem vehicle válido
             if (!order.vehicle) {
                 console.warn(`Ordem ${order.id} sem vehicle associado`);
                 return false;
             }
-            
             return true;
         });
-        
         res.status(200).json(validOrders);
     } catch (error) {
         console.error('Erro detalhado ao buscar ordens do dashboard:', error);
@@ -174,37 +147,32 @@ export const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status, payments } = req.body;
     try {
-        const updateData = { status };
-        
-        // Se o status for FINISHED, define a data de finalização
+        let updateData = { status };
         if (status === 'FINISHED') {
             updateData.finishedAt = new Date();
+        } else {
+            updateData.finishedAt = null;
         }
-        
         const updatedOrder = await prisma.workOrder.update({
             where: { id },
             data: updateData,
         });
-
         // Se há pagamentos e o status é FINISHED, salva os pagamentos
         if (status === 'FINISHED' && payments && Array.isArray(payments)) {
             await prisma.payment.createMany({
                 data: payments.map(payment => ({
                     workOrderId: id,
                     method: payment.method,
-                    amount: payment.amount,
-                    received: payment.received || null,
-                    change: payment.change || null
+                    amount: payment.amount
                 }))
             });
         }
-
         res.status(200).json(updatedOrder);
     } catch (error) {
         console.error('Erro ao atualizar status:', error);
         res.status(500).json({ message: "Erro ao atualizar status." });
     }
-} 
+};
 
 // Consulta de veículo por placa (mock)
 export const getVehicleByPlate = async (req, res) => {
@@ -224,12 +192,13 @@ export const listOrders = async (req, res) => {
     let where = {};
     if (employeeId) where.employeeId = employeeId;
     if (finalizadasHoje === '1') {
+      // Filtra ordens finalizadas hoje
       const start = new Date();
-      start.setHours(0,0,0,0);
+      start.setHours(0, 0, 0, 0);
       const end = new Date();
-      end.setHours(23,59,59,999);
-      where.finishedAt = { gte: start, lte: end };
+      end.setHours(23, 59, 59, 999);
       where.status = 'FINISHED';
+      where.finishedAt = { gte: start, lte: end };
     }
     const orders = await prisma.workOrder.findMany({
       where,
@@ -265,11 +234,6 @@ export const getAllOrders = async (req, res) => {
         vehicle: { 
           include: { 
             customer: true 
-          } 
-        },
-        services: { 
-          include: { 
-            service: true 
           } 
         },
         employee: true,

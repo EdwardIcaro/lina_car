@@ -4,6 +4,7 @@ import { createOrder, fetchVehicleInfoByPlate } from '../services/api';
 import './NewOrderPage.css';
 import axios from 'axios';
 import { FaArrowLeft } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const vehicleModels = [
   "Honda Titan 160", "Honda Biz", "Honda Bros", "Honda CG 160", "Honda Civic", "Honda Fit",
@@ -239,14 +240,14 @@ const NewOrderPage = () => {
           employeeId: selectedEmployeeId,
         });
       }
-      alert('Ordem de serviço criada com sucesso!');
+      toast.success('Ordem de serviço criada com sucesso!');
       setShowSummary(false);
       setFormData({ plate: '', model: '', color: '', customerName: '', customerPhone: '', serviceIds: [], customService: '', customPrice: '' });
       setSelectedServices([]);
       setSelectedLocalizaServices([]);
       setStep(0);
     } catch (err) {
-      alert('Erro ao criar ordem.');
+      toast.error('Erro ao criar ordem.');
     } finally {
       setLoading(false);
     }
@@ -277,7 +278,7 @@ const NewOrderPage = () => {
             <span style={{ fontSize: 40 }}>🏍️</span>
             Moto
           </button>
-          {localizaConfig && localizaConfig.isActive && (
+          {localizaConfig && (
             <button 
               className="submit-btn" 
               style={{ 
@@ -640,7 +641,7 @@ const NewOrderPage = () => {
             <div className="service-options-container">
               <label className="service-options-label">Selecione o serviço:</label>
               <div className="service-options-grid">
-                {localizaServices.filter(service => service.isActive).map(service => (
+                {localizaServices.map(service => (
                   <label key={service.id} className="service-option-card localiza-service-card">
                     <input
                       type="radio"

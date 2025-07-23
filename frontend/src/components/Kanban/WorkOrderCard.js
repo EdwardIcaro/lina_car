@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FaUserCircle, FaArrowRight, FaTrash } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 function timeAgo(dateString) {
   const now = new Date();
@@ -16,6 +17,7 @@ function timeAgo(dateString) {
 
 const WorkOrderCard = ({ order, onFinish, onDelete, onFinalize }) => {
   const [showActions, setShowActions] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const employee = order.employee;
   const customer = order.vehicle?.customer;
 
@@ -28,9 +30,7 @@ const WorkOrderCard = ({ order, onFinish, onDelete, onFinalize }) => {
   };
 
   const handleDelete = () => {
-    if (window.confirm('Tem certeza que deseja excluir este pedido?')) {
-      onDelete(order.id);
-    }
+    setShowDeleteConfirm(true);
   };
 
   return (
@@ -56,8 +56,8 @@ const WorkOrderCard = ({ order, onFinish, onDelete, onFinalize }) => {
       <div style={{ color: '#1976d2', fontWeight: 500, marginBottom: 2 }}>Cliente: {customer?.name}</div>
       <div style={{ marginBottom: 2 }}>
         <b>Serviços:</b> 
-        <span title={order.customService || order.services.map(s => s.service.name).join(', ')}>
-          {order.customService || order.services.map(s => s.service.name).join(', ')}
+        <span title={order.customService || (Array.isArray(order.services) ? order.services.map(s => s.service.name).join(', ') : '')}>
+          {order.customService || (Array.isArray(order.services) ? order.services.map(s => s.service.name).join(', ') : '')}
         </span>
       </div>
       <div style={{ marginBottom: 2 }}><b>Total:</b> R$ {order.totalPrice.toFixed(2)}</div>
@@ -158,6 +158,62 @@ const WorkOrderCard = ({ order, onFinish, onDelete, onFinalize }) => {
               <FaArrowRight />
             </button>
           )}
+        </div>
+      )}
+      {/* Modal de confirmação de exclusão */}
+      {showDeleteConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 10,
+            padding: 32,
+            boxShadow: '0 2px 16px #0003',
+            minWidth: 320,
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Confirmar exclusão</div>
+            <div style={{ marginBottom: 24 }}>Tem certeza que deseja excluir este pedido?</div>
+            <button
+              style={{
+                background: '#ff6b6b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                padding: '8px 24px',
+                fontWeight: 600,
+                marginRight: 16,
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                onDelete(order.id);
+                toast.success('Ordem de serviço excluída com sucesso!');
+              }}
+            >Excluir</button>
+            <button
+              style={{
+                background: '#eee',
+                color: '#333',
+                border: 'none',
+                borderRadius: 6,
+                padding: '8px 24px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              onClick={() => setShowDeleteConfirm(false)}
+            >Cancelar</button>
+          </div>
         </div>
       )}
     </div>

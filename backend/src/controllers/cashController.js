@@ -13,8 +13,7 @@ export const openCash = async (req, res) => {
         const cashMovement = await prisma.cashMovement.create({
             data: {
                 type: 'entrada',
-                amount: parseFloat(amount),
-                reason: 'Abertura de caixa'
+                amount: parseFloat(amount)
             }
         });
 
@@ -27,39 +26,18 @@ export const openCash = async (req, res) => {
 
 // Registrar saída
 export const withdrawCash = async (req, res) => {
-    const { amount, reason, type, employeeId } = req.body;
+    const { amount, employeeId } = req.body;
     
     try {
         if (!amount || amount <= 0) {
             return res.status(400).json({ message: 'Valor inválido para saída.' });
         }
 
-        if (!reason || reason.trim() === '') {
-            return res.status(400).json({ message: 'Motivo da saída é obrigatório.' });
-        }
-
-        if (type === 'vale' && !employeeId) {
-            return res.status(400).json({ message: 'Funcionário é obrigatório para vale.' });
-        }
-
-        let employee = null;
-        if (employeeId) {
-            employee = await prisma.employee.findUnique({
-                where: { id: employeeId }
-            });
-            if (!employee) {
-                return res.status(404).json({ message: 'Funcionário não encontrado.' });
-            }
-        }
-
         const cashMovement = await prisma.cashMovement.create({
             data: {
                 type: 'saida',
                 amount: parseFloat(amount),
-                reason: reason.trim(),
-                withdrawType: type || 'outro',
-                employeeId: employeeId || null,
-                employeeName: employee?.name || null
+                employeeId: employeeId || null
             }
         });
 
@@ -89,8 +67,22 @@ export const getCashHistory = async (req, res) => {
 // Calcular saldo atual
 export const getCashBalance = async (req, res) => {
     try {
-        const movements = await prisma.cashMovement.findMany();
-        
+        // Buscar a última abertura de caixa SEM closedAt (caixa aberto)
+        const lastOpen = await prisma.cashMovement.findFirst({
+            where: { type: 'entrada', closedAt: null },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (!lastOpen) {
+            // Caixa fechado, saldo é zero
+            return res.status(200).json({ balance: 0 });
+        }
+        // Buscar todas as movimentações a partir da abertura
+        const movements = await prisma.cashMovement.findMany({
+            where: {
+                createdAt: { gte: lastOpen.createdAt }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
         const balance = movements.reduce((total, movement) => {
             if (movement.type === 'entrada') {
                 return total + movement.amount;
@@ -98,7 +90,6 @@ export const getCashBalance = async (req, res) => {
                 return total - movement.amount;
             }
         }, 0);
-
         res.status(200).json({ balance });
     } catch (error) {
         console.error('Erro ao calcular saldo:', error);
@@ -106,7 +97,7 @@ export const getCashBalance = async (req, res) => {
     }
 }; 
 
-// Resumo do caixa do dia: fundo de caixa, saídas e saldo atual
+// Resumo do caixa do dia: fundo de caixa, entradas, saídas e saldo atual
 export const getCashSummary = async (req, res) => {
     try {
         const start = new Date();
@@ -116,14 +107,53 @@ export const getCashSummary = async (req, res) => {
         const movements = await prisma.cashMovement.findMany({
             where: {
                 createdAt: { gte: start, lte: end }
-            }
+            },
+            orderBy: { createdAt: 'asc' }
         });
-        const entradas = movements.filter(m => m.type === 'entrada').reduce((sum, m) => sum + m.amount, 0);
+        // Fundo de caixa: apenas a primeira entrada do dia
+        const abertura = movements.find(m => m.type === 'entrada');
+        const fundoDeCaixa = abertura ? abertura.amount : 0;
+        // Outras entradas do dia (exceto abertura)
+        const outrasEntradas = movements.filter(m => m.type === 'entrada' && m.id !== (abertura && abertura.id)).reduce((sum, m) => sum + m.amount, 0);
+        // Saídas do dia
         const saidas = movements.filter(m => m.type === 'saida').reduce((sum, m) => sum + m.amount, 0);
-        const saldo = entradas - saidas;
-        res.status(200).json({ fundoDeCaixa: entradas, saidas, saldoAtual: saldo });
+        // Saldo do dia: fundo de caixa + outras entradas - saídas
+        const saldo = fundoDeCaixa + outrasEntradas - saidas;
+        res.status(200).json({ fundoDeCaixa, outrasEntradas, saidas, saldoAtual: saldo });
     } catch (error) {
         console.error('Erro ao calcular resumo do caixa:', error);
+        res.status(500).json({ message: 'Erro interno do servidor.' });
+    }
+};
+
+// Fechar caixa do dia
+export const closeCash = async (req, res) => {
+    try {
+        const start = new Date();
+        start.setHours(0,0,0,0);
+        const end = new Date();
+        end.setHours(23,59,59,999);
+        // Busca a abertura do dia
+        const abertura = await prisma.cashMovement.findFirst({
+            where: {
+                createdAt: { gte: start, lte: end },
+                type: 'entrada',
+                closedAt: null
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (!abertura) {
+            return res.status(400).json({ message: 'Nenhuma abertura de caixa encontrada para hoje.' });
+        }
+        // Marca a abertura como fechada e salva observação
+        await prisma.cashMovement.update({
+            where: { id: abertura.id },
+            data: { closedAt: new Date(), observation: req.body.observation || null }
+        });
+        // Removido: saída automática para zerar fundo de caixa
+        res.status(200).json({ message: 'Caixa fechado com sucesso.' });
+    } catch (error) {
+        console.error('Erro ao fechar caixa:', error);
         res.status(500).json({ message: 'Erro interno do servidor.' });
     }
 };
