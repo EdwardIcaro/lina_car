@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { getEmployees, withdrawCash } from '../../services/api';
 
 const CashWithdrawModal = ({ onClose, onSuccess }) => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -15,7 +15,7 @@ const CashWithdrawModal = ({ onClose, onSuccess }) => {
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await axios.get('/api/employees');
+      const { data } = await getEmployees();
       setEmployees(data);
     } catch (error) {}
   };
@@ -35,7 +35,7 @@ const CashWithdrawModal = ({ onClose, onSuccess }) => {
     }
     setLoading(true);
     try {
-      await axios.post('/api/cash/withdraw', {
+      await withdrawCash({
         amount: parseFloat(withdrawAmount),
         reason: withdrawReason,
         type: withdrawType,

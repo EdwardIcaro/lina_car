@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { getLocalizaConfig, updateLocalizaConfig, getLocalizaServices, createLocalizaService, updateLocalizaService, deleteLocalizaService } from '../services/api';
 import { FaArrowLeft, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { Link } from 'react-router-dom'; // Added Link import
 import './LocalizaConfigPage.css';
@@ -19,7 +19,7 @@ const LocalizaConfigPage = () => {
 
   const fetchConfig = async () => {
     try {
-      const { data } = await axios.get('/api/orders/localiza/config');
+      const { data } = await getLocalizaConfig();
       setConfig(data);
     } catch (error) {
       console.error('Erro ao buscar configuração:', error);
@@ -28,7 +28,7 @@ const LocalizaConfigPage = () => {
 
   const fetchServices = async () => {
     try {
-      const { data } = await axios.get('/api/orders/localiza/services');
+      const { data } = await getLocalizaServices();
       setServices(data);
     } catch (error) {
       console.error('Erro ao buscar serviços:', error);
@@ -38,7 +38,7 @@ const LocalizaConfigPage = () => {
   const updateConfig = async (updates) => {
     try {
       setLoading(true);
-      const { data } = await axios.put('/api/orders/localiza/config', updates);
+      const { data } = await updateLocalizaConfig(updates);
       setConfig(data);
     } catch (error) {
       alert('Erro ao atualizar configuração');
@@ -50,7 +50,7 @@ const LocalizaConfigPage = () => {
   const addService = async () => {
     try {
       setLoading(true);
-      await axios.post('/api/orders/localiza/services', newService);
+      await createLocalizaService(newService);
       setNewService({ name: '', price: '' });
       setShowAddService(false);
       fetchServices();
@@ -64,7 +64,7 @@ const LocalizaConfigPage = () => {
   const updateService = async (id, updates) => {
     try {
       setLoading(true);
-      await axios.put(`/api/orders/localiza/services/${id}`, updates);
+      await updateLocalizaService(id, updates);
       setEditingService(null);
       fetchServices();
     } catch (error) {
@@ -79,7 +79,7 @@ const LocalizaConfigPage = () => {
     
     try {
       setLoading(true);
-      await axios.delete(`/api/orders/localiza/services/${id}`);
+      await deleteLocalizaService(id);
       fetchServices();
     } catch (error) {
       alert('Erro ao deletar serviço');

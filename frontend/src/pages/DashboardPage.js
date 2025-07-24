@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import KanbanBoard from '../components/Kanban/KanbanBoard';
 import CashModal from '../components/Cash/CashModal';
 import CashWithdrawModal from '../components/Cash/CashWithdrawModal';
-import axios from 'axios';
+import { getCashHistory, getDashboardOrders, listOrders, getAllPayments, getCashBalance } from '../services/api';
 import { FaCashRegister, FaEye, FaEyeSlash, FaPlusCircle, FaCog } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
@@ -31,7 +31,7 @@ const DashboardPage = () => {
     useEffect(() => {
         const checkCashOpen = async () => {
             try {
-                const { data } = await axios.get('/api/cash/history');
+                const { data } = await getCashHistory();
                 const start = new Date();
                 start.setHours(0,0,0,0);
                 const end = new Date();
@@ -53,9 +53,9 @@ const DashboardPage = () => {
     useEffect(() => {
         const fetchKpis = async () => {
             try {
-                const { data: andamento } = await axios.get('/api/orders/dashboard');
-                const { data: finalizadas } = await axios.get('/api/orders?finalizadasHoje=1');
-                const { data: pagamentos } = await axios.get('/api/payments?hoje=1');
+                const { data: andamento } = await getDashboardOrders();
+                const { data: finalizadas } = await listOrders({ finalizadasHoje: 1 });
+                const { data: pagamentos } = await getAllPayments({ hoje: 1 });
                 const localizaPagamentos = pagamentos.filter(p => p.method === 'localiza');
                 const faturamento = pagamentos.reduce((sum, p) => sum + p.amount, 0);
                 setKpis({
@@ -74,7 +74,7 @@ const DashboardPage = () => {
     useEffect(() => {
         const fetchBalance = async () => {
             try {
-                const { data } = await axios.get('/api/cash/balance');
+                const { data } = await getCashBalance();
                 setCashBalance(data.balance);
             } catch (e) {
                 setCashBalance(0);

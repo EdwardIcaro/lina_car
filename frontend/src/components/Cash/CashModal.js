@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaPlus, FaMinus, FaHistory, FaCog } from 'react-icons/fa';
-import axios from 'axios';
+import { getCashHistory, getCashBalance, getEmployees, openCash, withdrawCash, getAllPayments, closeCash } from '../../services/api';
 
 const CashModal = ({ onClose, initialTab }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'open'); // 'open', 'withdraw', 'history'
@@ -76,7 +76,7 @@ const CashModal = ({ onClose, initialTab }) => {
     const checkCashOpen = async () => {
         // Busca as movimentações do dia e verifica se já existe uma abertura
         try {
-            const { data } = await axios.get('/api/cash/history');
+            const { data } = await getCashHistory();
             const start = new Date();
             start.setHours(0,0,0,0);
             const end = new Date();
@@ -96,7 +96,7 @@ const CashModal = ({ onClose, initialTab }) => {
 
     const fetchEmployees = async () => {
         try {
-            const { data } = await axios.get('/api/employees');
+            const { data } = await getEmployees();
             setEmployees(data);
         } catch (error) {
             console.error('Erro ao carregar funcionários:', error);
@@ -105,7 +105,7 @@ const CashModal = ({ onClose, initialTab }) => {
 
     const fetchCashHistory = async () => {
         try {
-            const { data } = await axios.get('/api/cash/history');
+            const { data } = await getCashHistory();
             setCashHistory(data);
         } catch (error) {
             console.error('Erro ao carregar histórico:', error);
@@ -114,7 +114,7 @@ const CashModal = ({ onClose, initialTab }) => {
 
     const fetchCurrentBalance = async () => {
         try {
-            const { data } = await axios.get('/api/cash/balance');
+            const { data } = await getCashBalance();
             setCurrentBalance(data.balance);
         } catch (error) {
             console.error('Erro ao carregar saldo:', error);
@@ -127,9 +127,7 @@ const CashModal = ({ onClose, initialTab }) => {
             return;
         }
         try {
-            await axios.post('/api/cash/open', {
-                amount: parseFloat(cashData.openingAmount)
-            });
+            await openCash(parseFloat(cashData.openingAmount));
             setCashData({ ...cashData, openingAmount: '' });
             fetchCashHistory();
             fetchCurrentBalance();
@@ -157,7 +155,7 @@ const CashModal = ({ onClose, initialTab }) => {
         }
 
         try {
-            await axios.post('/api/cash/withdraw', {
+            await withdrawCash({
                 amount: parseFloat(cashData.withdrawAmount),
                 reason: cashData.withdrawReason,
                 type: cashData.withdrawType,
@@ -178,7 +176,7 @@ const CashModal = ({ onClose, initialTab }) => {
         setCloseDiffs(null);
         try {
             // Buscar pagamentos do dia
-            const paymentsRes = await axios.get('/api/payments?hoje=1');
+            const paymentsRes = await getAllPayments({ hoje: 1 });
             const payments = paymentsRes.data;
             // Somar por método
             let dinheiro = 0, cartao = 0, pix = 0, localiza = 0;
@@ -189,7 +187,7 @@ const CashModal = ({ onClose, initialTab }) => {
                 if (p.workOrder?.isLocaliza) localiza += p.amount;
             });
             // Buscar saídas do dia
-            const cashRes = await axios.get('/api/cash/history');
+            const cashRes = await getCashHistory();
             const start = new Date();
             start.setHours(0,0,0,0);
             const end = new Date();
@@ -251,9 +249,7 @@ const CashModal = ({ onClose, initialTab }) => {
         }
         setCloseObservationError('');
         try {
-            await axios.post('/api/cash/close', {
-                observation: hasDiff ? closeObservation : ''
-            });
+            await closeCash(hasDiff ? closeObservation : '');
             setCloseSuccess(true);
             setIsCashOpen(false);
             setActiveTab('open');

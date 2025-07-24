@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PlateReader from '../components/OCR/PlateReader';
-import { createOrder, fetchVehicleInfoByPlate } from '../services/api';
+import { createOrder, fetchVehicleInfoByPlate, getServices, getEmployees, getLocalizaServices, getLocalizaConfig, searchCustomers, getCustomerVehicles } from '../services/api';
 import './NewOrderPage.css';
-import axios from 'axios';
 import { FaArrowLeft } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
@@ -69,48 +68,48 @@ const NewOrderPage = () => {
   const [localizaConfig, setLocalizaConfig] = useState(null);
 
   useEffect(() => {
-    async function fetchServices() {
+    async function fetchServicesData() {
       try {
-        const { data } = await axios.get('/api/services');
+        const { data } = await getServices();
         setServices(data);
       } catch (err) {
         setServices([]);
       }
     }
-    async function fetchEmployees() {
+    async function fetchEmployeesData() {
       try {
-        const { data } = await axios.get('/api/employees');
+        const { data } = await getEmployees();
         setEmployees(data);
       } catch (err) {
         setEmployees([]);
       }
     }
-    async function fetchLocalizaServices() {
+    async function fetchLocalizaServicesData() {
       try {
-        const { data } = await axios.get('/api/orders/localiza/services');
+        const { data } = await getLocalizaServices();
         setLocalizaServices(data);
       } catch (err) {
         setLocalizaServices([]);
       }
     }
-    async function fetchLocalizaConfig() {
+    async function fetchLocalizaConfigData() {
       try {
-        const { data } = await axios.get('/api/orders/localiza/config');
+        const { data } = await getLocalizaConfig();
         setLocalizaConfig(data);
       } catch (err) {
         setLocalizaConfig({ isActive: false, percentage: 30 });
       }
     }
-    fetchServices();
-    fetchEmployees();
-    fetchLocalizaServices();
-    fetchLocalizaConfig();
+    fetchServicesData();
+    fetchEmployeesData();
+    fetchLocalizaServicesData();
+    fetchLocalizaConfigData();
   }, []);
 
   // Busca clientes por nome
   useEffect(() => {
     if (step === 3 && customerSearch.length > 1) {
-      axios.get(`/api/customers?search=${encodeURIComponent(customerSearch)}`)
+      searchCustomers(customerSearch)
         .then(res => setCustomerResults(res.data))
         .catch(() => setCustomerResults([]));
     }
@@ -119,7 +118,7 @@ const NewOrderPage = () => {
   // Busca veículos do cliente selecionado
   useEffect(() => {
     if (step === 4 && selectedCustomer) {
-      axios.get(`/api/customers/${selectedCustomer.id}/vehicles`)
+      getCustomerVehicles(selectedCustomer.id)
         .then(res => setCustomerVehicles(res.data))
         .catch(() => setCustomerVehicles([]));
     }

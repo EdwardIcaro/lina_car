@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { getServices, createService, updateService, deleteService, getEmployees, createEmployee, updateEmployee, deleteEmployee } from '../services/api';
 import { Link } from 'react-router-dom';
 import { FaCar } from 'react-icons/fa';
 import './SettingsPage.css';
@@ -21,7 +21,7 @@ const SettingsPage = () => {
 
   const fetchServices = async () => {
     try {
-      const { data } = await axios.get('/api/services');
+      const { data } = await getServices();
       setServices(data);
     } catch (err) {
       setServices([]);
@@ -30,7 +30,7 @@ const SettingsPage = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await axios.get('/api/employees');
+      const { data } = await getEmployees();
       setEmployees(data);
     } catch (err) {
       setEmployees([]);
@@ -41,7 +41,7 @@ const SettingsPage = () => {
     e.preventDefault();
     if (!newService.name || !newService.price) return;
     try {
-      await axios.post('/api/services', { ...newService, price: parseFloat(newService.price) });
+      await createService({ ...newService, price: parseFloat(newService.price) });
       setNewService({ name: '', price: '', type: 'carro' });
       fetchServices();
     } catch (err) {}
@@ -50,7 +50,7 @@ const SettingsPage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja realmente excluir este serviço?')) return;
     try {
-      await axios.delete(`/api/services/${id}`);
+      await deleteService(id);
       fetchServices();
     } catch (err) {}
   };
@@ -67,7 +67,7 @@ const SettingsPage = () => {
 
   const handleSaveEdit = async (id) => {
     try {
-      await axios.put(`/api/services/${id}`, { ...editingService, price: parseFloat(editingService.price) });
+      await updateService(id, { ...editingService, price: parseFloat(editingService.price) });
       setEditingId(null);
       fetchServices();
     } catch (err) {}
@@ -77,7 +77,7 @@ const SettingsPage = () => {
     e.preventDefault();
     if (!newEmployee.name || !newEmployee.percentage) return;
     try {
-      await axios.post('/api/employees', { ...newEmployee, percentage: parseFloat(newEmployee.percentage) });
+      await createEmployee({ ...newEmployee, percentage: parseFloat(newEmployee.percentage) });
       setNewEmployee({ name: '', percentage: '' });
       fetchEmployees();
     } catch (err) {}
@@ -86,7 +86,7 @@ const SettingsPage = () => {
   const handleDeleteEmployee = async (id) => {
     if (!window.confirm('Deseja realmente excluir este funcionário?')) return;
     try {
-      await axios.delete(`/api/employees/${id}`);
+      await deleteEmployee(id);
       fetchEmployees();
     } catch (err) {}
   };
@@ -103,7 +103,7 @@ const SettingsPage = () => {
 
   const handleSaveEditEmployee = async (id) => {
     try {
-      await axios.put(`/api/employees/${id}`, { ...editingEmployee, percentage: parseFloat(editingEmployee.percentage) });
+      await updateEmployee(id, { ...editingEmployee, percentage: parseFloat(editingEmployee.percentage) });
       setEditingEmployeeId(null);
       fetchEmployees();
     } catch (err) {}

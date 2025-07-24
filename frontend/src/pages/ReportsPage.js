@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaFilter, FaDownload, FaChartBar, FaCalendarAlt, FaMoneyBillWave, FaCreditCard, FaQrcode } from 'react-icons/fa';
-import axios from 'axios';
+import { getAllPayments, getEmployees } from '../services/api';
 
 const ReportsPage = () => {
   const [payments, setPayments] = useState([]);
@@ -29,7 +29,7 @@ const ReportsPage = () => {
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('/api/payments');
+      const { data } = await getAllPayments();
       setPayments(data);
     } catch (error) {
       console.error('Erro ao carregar pagamentos:', error);
@@ -40,7 +40,7 @@ const ReportsPage = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await axios.get('/api/employees');
+      const { data } = await getEmployees();
       setEmployees(data);
     } catch (error) {
       console.error('Erro ao carregar funcionários:', error);

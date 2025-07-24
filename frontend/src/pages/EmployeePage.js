@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FaUser, FaMoneyBillWave, FaChartBar, FaCar } from 'react-icons/fa';
-import axios from 'axios';
+import { getEmployees, getAllOrders, listOrders } from '../services/api';
 
 const EmployeePage = () => {
   const [employees, setEmployees] = useState([]);
@@ -29,7 +29,7 @@ const EmployeePage = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await axios.get('/api/employees');
+      const { data } = await getEmployees();
       setEmployees(data);
     } catch (err) {
       console.error('Erro ao carregar funcionários:', err);
@@ -40,7 +40,7 @@ const EmployeePage = () => {
   const fetchAllOrders = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('/api/orders/all');
+      const { data } = await getAllOrders();
       setAllOrders(data);
     } catch (err) {
       console.error('Erro ao carregar todas as ordens:', err);
@@ -52,7 +52,7 @@ const EmployeePage = () => {
 
   const fetchOrders = async (employeeId) => {
     try {
-      const { data } = await axios.get(`/api/orders?employeeId=${employeeId}`);
+      const { data } = await listOrders({ employeeId });
       setOrders(data);
     } catch (err) {
       console.error('Erro ao carregar ordens do funcionário:', err);

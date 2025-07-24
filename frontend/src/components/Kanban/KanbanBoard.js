@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { getDashboardOrders, updateOrderStatus, deleteOrder } from '../../services/api';
+import { getDashboardOrders, updateOrderStatus, deleteOrder, getEmployees } from '../../services/api';
 import WorkOrderCard from './WorkOrderCard';
 import PaymentModal from '../Payment/PaymentModal';
 import './Kanban.css';
-import axios from 'axios';
 
 const KanbanBoard = () => {
     const [columns, setColumns] = useState({
@@ -48,16 +47,16 @@ const KanbanBoard = () => {
                 }
             }
         };
-        const fetchEmployees = async () => {
+        const fetchEmployeesData = async () => {
             try {
-                const { data } = await axios.get('/api/employees');
+                const { data } = await getEmployees();
                 setEmployees(data);
             } catch (error) {
                 console.error('Erro ao carregar funcionários:', error);
             }
         };
         fetchOrders();
-        fetchEmployees();
+        fetchEmployeesData();
     }, [selectedEmployee]);
 
     // Sincronização automática a cada 5 segundos

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { getCashReports, getCashHistory } from '../services/api';
 
 const CashReportsPage = () => {
   const [reports, setReports] = useState([]);
@@ -17,7 +17,7 @@ const CashReportsPage = () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await axios.get('/api/cash/reports');
+      const { data } = await getCashReports();
       setReports(data);
     } catch (err) {
       setError('Erro ao carregar relatórios.');
@@ -27,7 +27,7 @@ const CashReportsPage = () => {
 
   const fetchMovements = async () => {
     try {
-      const { data } = await axios.get('/api/cash/history');
+      const { data } = await getCashHistory();
       setMovements(data);
     } catch (err) {}
   };
