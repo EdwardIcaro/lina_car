@@ -1,3 +1,22 @@
+# FRONTEND (React)
+frontend/node_modules/
+frontend/.cache/
+frontend/.eslintcache
+frontend/.env
+frontend/.env.*
+frontend/.pnp.*
+frontend/.yarn/
+frontend/.yarnrc.yml
+frontend/coverage/
+frontend/report.*
+frontend/*.log
+frontend/.vscode/
+frontend/.idea/
+frontend/*.sublime-workspace
+frontend/*.sublime-project
+frontend/package-lock.json
+frontend/yarn.lock
+
 # Ignora node_modules em qualquer lugar do projeto
 node_modules/
 
