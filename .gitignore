@@ -1,1 +1,39 @@
-node_modules
+# Ignora node_modules em qualquer lugar do projeto
+node_modules/
+
+# Ignora arquivos de log
+yarn-debug.log*
+yarn-error.log*
+npm-debug.log*
+
+# Ignora arquivos de ambiente
+.env
+.env.*
+
+# Ignora arquivos de build do React
+frontend/build/
+
+# Ignora arquivos de build do backend (caso use dist)
+backend/dist/
+
+# Ignora arquivos do Prisma gerados
+backend/prisma/dev.db*
+backend/prisma/*.sqlite
+
+# Ignora cache do frontend
+frontend/.cache/
+
+# Ignora arquivos do VSCode
+.vscode/
+
+# Ignora arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Ignora arquivos de backup
+*~
+*.swp
+*.swo
+
+# Ignora arquivos de lock do Prisma
+backend/prisma/migration_lock.toml
